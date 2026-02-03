@@ -1,0 +1,6 @@
+{
+    "packages": ["numpy", "scipy", "matplotlib"],
+    "files": {
+        "cpUtilsBiFix.py": "./cpUtilsBiFix.py"
+    }
+}
