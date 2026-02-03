@@ -4,9 +4,9 @@ from pyscript import display, document
 
 def update_plot(event=None):
     # get UI values
-    num_facets = int(document.getElementById("numFacets").value)
-    num_paths = int(document.getElementById("numPaths").value)
-    hex_color = document.getElementById("pathColor").value
+    numFacets = int(document.getElementById("numFacets").value)
+    numPaths = int(document.getElementById("numPaths").value)
+    hexColor = document.getElementById("pathColor").value
     
     # update UI
     document.getElementById("facetValue").innerText = str(numFacets)
@@ -22,8 +22,8 @@ def update_plot(event=None):
     
     for path in c:
         cp, xMid = generatePath(A, b, path)
-        ax.plot(cp[:, 0], cp[:, 1], color=hex_color, marker="*", ms=3, alpha=0.6)
-        ax.plot(xMid[:, 0], xMid[:, 1], "o", ms=3, color=hex_color)
+        ax.plot(cp[:, 0], cp[:, 1], color=hexColor, marker="*", ms=3, alpha=0.6)
+        ax.plot(xMid[:, 0], xMid[:, 1], "o", ms=3, color=hexColor)
 
     ax.set_title(f"{numFacets}-gon central path flower")
     ax.grid(True, linestyle='--', alpha=0.7)
