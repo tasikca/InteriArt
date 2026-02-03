@@ -1,4 +1,4 @@
-from cpUtilsBiFix import get2DData, generatePath, getRand2DCvectors
+from cpUtilsBiWeb import get2DData, generatePath, getRand2DCvectors
 import matplotlib.pyplot as plt
 from pyscript import display, document
 
