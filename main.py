@@ -23,7 +23,7 @@ def update_plot(event=None):
     for path in c:
         cp, xMid = generatePath(A, b, path)
         cpPlot = ax.plot(cp[:, 0], cp[:, 1], color=hexColor, marker="o", ms=3, alpha=0.6)
-        xMid = ax.plot(xMid[:, 0], xMid[:, 1], "o", ms=3, color=k)
+        xMid = ax.plot(xMid[:, 0], xMid[:, 1], "o", ms=3, color='k')
 
     ax.set_title(f"{numFacets}-gon central path flower")
     ax.set_aspect('equal', adjustable='box')
