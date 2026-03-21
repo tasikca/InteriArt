@@ -37,12 +37,13 @@ async def update_plot(event=None):
         
         for path in c:
             cp, xMid = generatePath(A, b, path)
-            ax.plot(cp[:, 0], cp[:, 1], color='red', linewidth=10)
+            ax.plot(cp[:, 0], cp[:, 1], color='red', linewidth=15)
             # ax.plot(cp[:, 0], cp[:, 1], color=hexColor, marker="o", ms=3, alpha=0.6)
             # ax.plot(xMid[:, 0], xMid[:, 1], "o", ms=3, color="k")
 
         # ax.set_title(f"{numFacets}-gon central path flower")
         ax.set_aspect('equal', adjustable='box')
+        ax.axis('off')
         fig.tight_layout()
 
         # Update the global figure reference
