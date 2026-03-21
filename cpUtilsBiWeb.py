@@ -10,7 +10,7 @@ def get2DData(numFacets):
 
 
 def calcPathElement(A,b,c,mu,x,s,y):
-   tol = 10**(-8)    # control tolarence for specific mu values
+   tol = 10**(-6)    # control tolarence for specific mu values
    er = np.linalg.norm(np.vstack((np.array(y)*np.array(s)-mu, A.T@y - c)))
    while er >= tol:
       dx = np.linalg.solve(A.T@np.diag((np.array(y)/np.array(s)).flatten(),0)@A, \
@@ -46,7 +46,7 @@ def divideMuInterval(A,b,c,mu1,mu2,cpDict,maxKappa,xMidDict):
   
 
    # bisection vibes
-   tol = 10**(-8)
+   tol = 10**(-4)
    a,b = mu1, mu2 
    tempBi = calcPathElement(A,b,c,muMid,xMid,sMid,yMid)
    xtemp = tempBi['x']
