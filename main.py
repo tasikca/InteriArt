@@ -25,7 +25,7 @@ async def update_plot(event=None):
         # Get UI values
         numFacets = int(document.getElementById("numFacets").value)
         numPaths = int(document.getElementById("numPaths").value)
-        hexColor = document.getElementById("pathColor").value
+        # hexColor = document.getElementById("pathColor").value
 
         # Run the math from your utility files
         A, b = get2DData(numFacets)
@@ -37,10 +37,11 @@ async def update_plot(event=None):
         
         for path in c:
             cp, xMid = generatePath(A, b, path)
-            ax.plot(cp[:, 0], cp[:, 1], color=hexColor, marker="o", ms=3, alpha=0.6)
-            ax.plot(xMid[:, 0], xMid[:, 1], "o", ms=3, color="k")
+            ax.plot(cp[:, 0], cp[:, 1], color='red', linewidth=5)
+            # ax.plot(cp[:, 0], cp[:, 1], color=hexColor, marker="o", ms=3, alpha=0.6)
+            # ax.plot(xMid[:, 0], xMid[:, 1], "o", ms=3, color="k")
 
-        ax.set_title(f"{numFacets}-gon central path flower")
+        # ax.set_title(f"{numFacets}-gon central path flower")
         ax.set_aspect('equal', adjustable='box')
         fig.tight_layout()
 
