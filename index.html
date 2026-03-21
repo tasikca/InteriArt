@@ -32,8 +32,12 @@
             <input type="color" id="pathColor" value="#3b82f6" class="w-full h-10">
         </div>
 
-        <button py-click="update_plot" class="w-full bg-blue-600 text-white py-2 rounded shadow hover:bg-blue-700">
+		<button id="generate-btn" py-click="update_plot" class="w-full bg-blue-600 text-white py-2 rounded shadow hover:bg-blue-700 transition-colors">
             Generate Graph
+        </button>
+
+        <button id="download-btn" py-click="download_svg" class="hidden w-full bg-green-600 text-white py-2 mt-4 rounded shadow hover:bg-green-700 transition-colors">
+            Download SVG
         </button>
     </div>
 
