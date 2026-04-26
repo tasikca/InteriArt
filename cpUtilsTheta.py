@@ -410,6 +410,34 @@ def generatePath(A,b,c):
       k = k+1
    return cp
 
+def generateOldPath(A,b,c):
+   maxKappa = 0.2           # maximum curvature estimate
+   muSmallest = np.exp(-16) # surrogate for mu = zero
+   muLargest  = 10          # surrogate for mu = infty
+   m,n = np.shape(A)
+   c = np.matrix(c).T # Make sure to have the correct vector form
+   # initialize at the analytic center
+   x = np.zeros((n,1))
+   s = np.copy(b) # this works because x = 0 is feasible
+   y = np.array(muLargest*(1/s)) # muLargest is a starting surrogate for infty
+   # instantiate the central path dictionary with keys being mu values
+   cpDict = {}
+   cpDict[muLargest] = {'x':np.matrix(x), 's':np.matrix(s), 'y':np.matrix(y)}
+   cpDict[muSmallest] = calcPathElement(A,b,c,muSmallest,x,s,y)
+   divideMuInterval(A,b,c,muLargest,muSmallest,cpDict,maxKappa)
+   #
+   # This is a bit cumbersome, but the rest of the code expects paths
+   # to be x variables only and in a numpy matrix form. So we convert
+   # the dictionary to an ordered matrix.
+   #
+   cp = np.zeros((len(cpDict),n))
+   k = 0
+   for mu in dict(sorted(cpDict.items())):
+      cp[k,:] = cpDict[mu]['x'].T
+      k = k+1
+   return cp
+
+
 #
 # plot2DFlower
 #
@@ -436,47 +464,49 @@ def plot2DFlower(A,b,c,theta,T,colr):
    plt.show()
    return
 
-#
-# plot2DFlowerAdjust
-#
+
 def plot2DFlowerAdjust(A, b, c, theta, T, cmap_name="viridis",
                        fig_name="cpFig",
                        extension="svg",
                        dpi=600,
                        **kwargs):
     """
-    Plots a 2D flower where each central path is assigned a unique color from a colormap.
+    Plots a 2D flower with a legend indicating the point count for each path.
     """
     pltBorder = 0.1
     pltBound = 0
     fig = plt.figure(figsize=(5, 5))
 
-    # Mathematical discipline: Set global font for serif academic style
+    # Professional font consistency
     plt.rcParams.update({'font.size': 10, 'font.family': 'serif'})
 
     num_paths = len(c)
-    # Obtain the colormap object
     colormap = cm.get_cmap(cmap_name)
 
     for t in range(num_paths):
-        # Generate the central path for the t-th c-vector
-        cp = generatePath(A, b, c[t, :])
+        # Generate the central path
+        cp = generateOldPath(A, b, c[t, :])
+        num_points = len(cp) # The number of rows equals the number of points
+        
         pltBound = max(abs(cp).max(), pltBound)
 
-        # Sample the colormap at the normalized index
-        # We use num_paths - 1 to ensure we hit the full range [0, 1]
         path_color = colormap(t / max(1, num_paths - 1))
 
         x_vals = np.cos(theta) * (cp[:, 0] + T[0]) + np.sin(theta) * (cp[:, 1] + T[1])
         y_vals = -np.sin(theta) * (cp[:, 0] + T[0]) + np.cos(theta) * (cp[:, 1] + T[1])
 
-        # Plot using the unique sampled color
-        plt.plot(x_vals, y_vals, color=path_color, **kwargs)
+        # Assign a label for the legend using an f-string
+        plt.plot(x_vals, y_vals, color=path_color, label=f"{num_points} pts", **kwargs)
 
-    plt.xlim((-pltBound - pltBorder, pltBound + pltBorder))
-    plt.ylim((-pltBound - pltBorder, pltBound + pltBorder))
+    plt.xlim((0 - pltBorder, pltBound + pltBorder))
+    plt.ylim((0 - pltBorder, pltBound + pltBorder))
 
     plt.gca().set_aspect('equal', adjustable='box')
+
+    # Placement of the legend: 'best' attempts to avoid overlapping data.
+    # We use a smaller font size to keep the plot compact.
+    plt.legend(fontsize='small', frameon=True, loc='upper left')
+    plt.title("Points from Curvature Estimate", fontsize=12, family='serif')
 
     full_filename = f"{fig_name}.{extension}"
     fig.savefig(full_filename, dpi=dpi, bbox_inches='tight', transparent=True)
