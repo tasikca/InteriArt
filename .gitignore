@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .venv/
 env/
+*.swp
 
 # Octave/MATLAB
 *.asv
@@ -15,8 +16,8 @@ octave-workspace
 tmpSTL*.stl
 finalSTL.stl
 cpFig*.svg
-.svg
-.png
+*.svg
+*.png
 
 # OS generated files
 .DS_Store

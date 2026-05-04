@@ -35,81 +35,117 @@ def calcPathElement(A,b,c,mu,x,s,y):
       er = np.linalg.norm(np.vstack((y*s-mu, A.T@y - c)))
    return {'x':x, 's':s, 'y':y}
 
-def divideMuInterval(A,b,c,mu1,mu2,cpDict,maxKappa,xMidDict):
-   # assumes mu1 > mu2, probably should add a check
-   muMid = 0.5*(mu1+mu2)
-   xMid = 0.5*(cpDict[mu1]['x'] + cpDict[mu2]['x'])
-   sMid = 0.5*(cpDict[mu1]['s'] + cpDict[mu2]['s'])
-   yMid = 0.5*(cpDict[mu1]['y'] + cpDict[mu2]['y'])
-   #cpDict[muMid] = calcPathElement(A,b,c,muMid,xMid,sMid,yMid)
-   xMidDict[muMid] = {'x': xMid}
-  
+def calcNewtonPathElement(A,b,c,mu,x,s,y,x1,x2,mu1,mu2,theta):
+   m,n = np.shape(A)
 
-   # bisection vibes
-   tol = 10**(-4)
-   a,b = mu1, mu2 
-   tempBi = calcPathElement(A,b,c,muMid,xMid,sMid,yMid)
-   xtemp = tempBi['x']
+   tol = 10**(-8)    # control tolarence for specific mu values
+   er = np.linalg.norm((np.array(y)*np.array(s)-mu))
+   while er >= tol:
+
+      M11 = A.T @ np.diag((np.array(y)/np.array(s)).flatten()) @ A
+      M12 = -A.T @ (np.array(1/s))
+      M21 = (x2 - x1).T
+      M22 = np.zeros((1, 1))
+
+      M_top = np.hstack((M11, M12))
+      M_bot = np.hstack((M21, M22))
+      M = np.vstack((M_top, M_bot))
+
+      U1 = -mu * (A.T @ np.array((1/s))) + c
+      U2_scalar = theta * (np.linalg.norm(x2 - x1)**2) - ((x2 - x1).T @ (x - x1)).item()
+      U2 = np.array([[U2_scalar]])
+
+      U = np.vstack((U1, U2))
+
+      #solve Mz=U
+      try:
+         dz = np.linalg.solve(M, U)
+      except np.linalg.LinAlgError:
+         print("M is a bachelor")
+         break
+
+      dx = dz[:-1]
+      dmu = dz[-1,0]
+
+      ds = -A @ dx
+      dy = np.diag(np.array(1/s).flatten())*(np.ones((m,1))
+            *(mu-dmu)-(np.diag(np.array(y).flatten())*(s+ds)))
+
+
+      # find a reasonable step size 
+      # the world breaks if s or y become negative
+      negIndS = np.nonzero(ds < 0)
+      if len(negIndS[0]) == 0:
+         alpha = 1
+      else:
+         alpha = min(1, 0.9*np.min(-s[negIndS]/ds[negIndS]))
+
+      negIndY = np.nonzero(dy < 0)
+      if len(negIndY[0]) == 0:
+         beta = 1
+      else:
+         beta = min(1, 0.9*np.min(-y[negIndY]/dy[negIndY]))
+
+      if (mu-np.abs(dmu) < min(mu1,mu2)):
+         gamma = 0.1*min(np.abs(mu-mu1), np.abs(mu-mu2))/dmu
+      elif (mu+np.abs(dmu) > max(mu1,mu2)):
+         gamma = 0.1*min(np.abs(mu-mu1), np.abs(mu-mu2))/dmu
+      else:
+         gamma = 1
+
+      x  = np.array(x + alpha*dx)
+      s  = np.array(s + alpha*ds)
+      y  = np.array(y + beta*dy)
+      mu = mu-gamma*dmu
+
+      er = np.linalg.norm((y*s-mu))
+   return {'x':x, 's':s, 'y':y, 'mu':mu}
+
+
+
+def divideNewtonMuInterval(A,b,c,mu1,mu2,theta,cpDict,maxDist):
    x1 = cpDict[mu1]['x']
    x2 = cpDict[mu2]['x']
 
-   while np.abs(np.dot((x1-x2).T,xtemp-xMid).item()) > tol:
-      #print('err',np.abs(np.dot((x1-x2).T,xtemp-xMid).item()))
-      muMid = float((a + b)/2)
-      #print('muMid',muMid)
+   muMid = (1-theta)*mu1 + theta*mu2
+   xMid = (1-theta)*x1 + theta*x2
+   sMid = 0.5*(cpDict[mu1]['s'] + cpDict[mu2]['s'])
+   yMid = 0.5*(cpDict[mu1]['y'] + cpDict[mu2]['y'])
 
-      tempBi = calcPathElement(A,b,c,muMid,xMid,sMid,yMid)
-      #if np.dot((x1-x2).T,tempBi['x']-xMid).item() - np.dot((x1-x2).T,xtemp-xMid).item() < 0:
-      if np.dot((x1-x2).T,tempBi['x']-xMid).item() < 0:
-         b = muMid
-      else:
-         a = muMid
-      xtemp = tempBi['x']
- 
-   cpDict[muMid] = tempBi
+   tempDict = calcNewtonPathElement(A,b,c,muMid,xMid,sMid,yMid,x1,x2,mu1,mu2,theta)
+   muNew = tempDict['mu'].item()
+   cpDict[muNew] = tempDict
 
-   #estimate curvature
-   #kappa1,kappa2 = calcDistToMidPoint(cpDict[mu1]['x'],cpDict[mu2]['x'],cpDict[muMid]['x'])
-   kappa1,kappa2 = np.linalg.norm(xMid-xtemp), np.linalg.norm(xMid-xtemp)
-   if kappa1 > maxKappa:
-      divideMuInterval(A,b,c,mu1,muMid,cpDict,maxKappa,xMidDict)
-   if kappa2 > maxKappa:
-      divideMuInterval(A,b,c,muMid,mu2,cpDict,maxKappa,xMidDict)
+   # determine whether to keep dividing
+   if np.linalg.norm(xMid-cpDict[muNew]['x']) > maxDist:
+      divideNewtonMuInterval(A,b,c,mu1,muNew,theta,cpDict,maxDist)
+      divideNewtonMuInterval(A,b,c,muNew,mu2,theta,cpDict,maxDist)
    return
 
-#vector rejection
-def calcDistToMidPoint(x1,x2,xMu):
-   xMid = (x1 + x2)/2
-   x = (xMu - xMid).T
-   xM1 = xMu - x1
-   xM2 = xMu - x2
-   xProjx1R = np.linalg.norm(x-(np.dot(x,xM1) / np.linalg.norm(xM1)).item()*xM1)
-   xProjx2R = np.linalg.norm(x-(np.dot(x,xM2) / np.linalg.norm(xM2)).item()*xM2)
-   xProjx1 = np.linalg.norm(np.dot(x,xMu-x1) / np.linalg.norm(xMu-x1))
-   xProjx2 = np.linalg.norm(np.dot(x,xMu-x2) / np.linalg.norm(xMu-x2))
-   #print('proj',xMu-x1)
-   #print('proj',(np.dot(x,xMu-x1) / np.linalg.norm(xMu-x1)).item()*(xMu-x1))
-   return np.max([np.exp(-xProjx1),np.exp(-xProjx1R)]), np.max([np.exp(-xProjx2),np.exp(-xProjx2R)])
 
 
 def generatePath(A,b,c):
-   maxKappa = 0.005           # maximum curvature estimate
+   maxDist = 0.01           # maximum distance error to path
+   theta = 0.5             # convex combo of x1 and x2
    muSmallest = np.exp(-16) # surrogate for mu = zero
-   #muSmallest = 1  # surrogate for mu = zero
    muLargest  = 10          # surrogate for mu = infty
+   muInf = muLargest + 1    # this makes (0,0) the center
    m,n = np.shape(A)
    c = np.matrix(c).T # Make sure to have the correct vector form
+
    # initialize at the analytic center
    x = np.zeros((n,1))
    s = np.copy(b) # this works because x = 0 is feasible
    y = np.array(muLargest*(1/s)) # muLargest is a starting surrogate for infty
+
    # instantiate the central path dictionary with keys being mu values
    cpDict = {}
-   xMidDict = {}
-   cpDict[muLargest] = {'x':np.matrix(x), 's':np.matrix(s), 'y':np.matrix(y)}
-   cpDict[muSmallest] = calcPathElement(A,b,c,muSmallest,x,s,y)
-   divideMuInterval(A,b,c,muSmallest,muLargest,cpDict,maxKappa,xMidDict)
+   cpDict[muInf] = {'x':np.matrix(x), 's':np.matrix(s), 'y':np.matrix(y)}
 
+   cpDict[muLargest] = calcPathElement(A,b,c,muLargest,x,s,y)
+   cpDict[muSmallest] = calcPathElement(A,b,c,muSmallest,x,s,y)
+
+   divideNewtonMuInterval(A,b,c,muLargest,muSmallest,theta,cpDict,maxDist)
    #
    # This is a bit cumbersome, but the rest of the code expects paths
    # to be x variables only and in a numpy matrix form. So we convert
@@ -120,15 +156,8 @@ def generatePath(A,b,c):
    for mu in dict(sorted(cpDict.items())):
       cp[k,:] = cpDict[mu]['x'].T
       k = k+1
-   #print('cp',cp)
+   return cp
 
-   xM = np.zeros((len(xMidDict),2))
-   j = 0
-   for mu in dict(sorted(xMidDict.items())):
-      xM[j,:] = xMidDict[mu]['x'].T
-      j = j+1
-
-   return cp, xM
 
 def getRand2DCvectors(A,numPathsPerLeaf):
    rng=np.random.default_rng()

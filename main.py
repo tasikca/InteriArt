@@ -17,8 +17,7 @@ async def update_plot(event=None):
     btn.disabled = True
     btn.classList.add("opacity-50", "cursor-not-allowed")
     
-    # This tiny sleep allows the browser to actually paint the "Generating..." text 
-    # before the CPU-heavy math blocks the thread.
+    #So the generating... can show
     await asyncio.sleep(0.01)
 
     try:
@@ -36,10 +35,9 @@ async def update_plot(event=None):
         fig, ax = plt.subplots(figsize=(8, 6))
         
         for path in c:
-            cp, xMid = generatePath(A, b, path)
+            cp = generatePath(A, b, path)
             ax.plot(cp[:, 0], cp[:, 1], color='red', linewidth=10)
             # ax.plot(cp[:, 0], cp[:, 1], color=hexColor, marker="o", ms=3, alpha=0.6)
-            # ax.plot(xMid[:, 0], xMid[:, 1], "o", ms=3, color="k")
 
         # ax.set_title(f"{numFacets}-gon central path flower")
         ax.set_aspect('equal', adjustable='box')
