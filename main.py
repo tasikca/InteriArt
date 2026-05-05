@@ -1,7 +1,7 @@
 import io
 import base64
 import asyncio
-from cpUtilsBiWeb import get2DData, generatePath, getRand2DCvectors
+from cpUtilsThetaWeb import get2DData, generatePath, getRand2DCvectors, getNiceRand2DCvectors
 import matplotlib.pyplot as plt
 from pyscript import display, document
 
@@ -24,11 +24,12 @@ async def update_plot(event=None):
         # Get UI values
         numFacets = int(document.getElementById("numFacets").value)
         numPaths = int(document.getElementById("numPaths").value)
+        plotPoints = document.getElementById("pointToggle").checked
         # hexColor = document.getElementById("pathColor").value
 
         # Run the math from your utility files
         A, b = get2DData(numFacets)
-        c = getRand2DCvectors(A, numPaths)
+        c = getNiceRand2DCvectors(A, numPaths)
 
         # Matplotlib plotting
         plt.close('all') 
@@ -36,8 +37,10 @@ async def update_plot(event=None):
         
         for path in c:
             cp = generatePath(A, b, path)
-            ax.plot(cp[:, 0], cp[:, 1], color='red', linewidth=10)
-            # ax.plot(cp[:, 0], cp[:, 1], color=hexColor, marker="o", ms=3, alpha=0.6)
+            ax.plot(cp[:, 0], cp[:, 1], color='red', linewidth=5, linestyle='-')
+            
+            if plotPoints:
+               ax.plot(cp[:, 0], cp[:, 1], color='black', marker="o", ms=5, linestyle='', alpha=0.4)
 
         # ax.set_title(f"{numFacets}-gon central path flower")
         ax.set_aspect('equal', adjustable='box')
@@ -66,23 +69,33 @@ def download_svg(event=None):
     if current_fig is None:
         return
 
-    # Get the name from the input field
     user_name = document.getElementById("user-name").value.strip()
-    # Default to 'user' if the field is empty
-    filename_prefix = user_name if user_name else "user"
-    filename = f"{filename_prefix}_central_path.svg"
+    filename = f"{user_name if user_name else 'user'}_central_path.svg"
 
-    # Save figure to buffer
+    # 1. Identify and hide point markers on the active axes[cite: 10]
+    ax = current_fig.gca()
+    original_states = []
+    
+    for line in ax.get_lines():
+        marker = line.get_marker()
+        original_states.append((line, marker))
+        if marker not in ['', 'None', None]:
+            line.set_marker('None')
+
+    # 2. Save the cleaned figure to buffer[cite: 10]
     buf = io.BytesIO()
     current_fig.savefig(buf, format='svg', bbox_inches='tight')
     buf.seek(0)
     
-    # Encode to Base64
+    # 3. Restore the markers for the UI[cite: 10]
+    for line, marker in original_states:
+        line.set_marker(marker)
+
+    # 4. Base64 encode and trigger download[cite: 10]
     svg_data = buf.read().decode('utf-8')
     encoded_data = base64.b64encode(svg_data.encode('utf-8')).decode('utf-8')
     uri = f"data:image/svg+xml;base64,{encoded_data}"
 
-    # Trigger browser download
     a = document.createElement("a")
     a.href = uri
     a.download = filename
