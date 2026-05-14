@@ -18,6 +18,8 @@ finalSTL.stl
 cpFig*.svg
 *.svg
 *.png
+*.jpg
+*.pdf
 
 # OS generated files
 .DS_Store
@@ -28,3 +30,6 @@ Thumbs.db
 *~
 .fuse_hidden*
 .nfs*
+
+# Folders
+clocks/

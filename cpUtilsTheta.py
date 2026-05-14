@@ -376,8 +376,8 @@ def divideNewtonMuInterval(A,b,c,mu1,mu2,theta,cpDict,maxDist):
 # Returns a central path for A, b, and c.
 # Calculation assumes maximization in the dual form.
 #
-def generatePath(A,b,c):
-   maxDist = 0.01           # maximum distance error to path
+def generatePath(A,b,c,tol=0.01):
+   maxDist = tol           # maximum distance error to path
    theta = 0.5             # convex combo of x1 and x2
    muSmallest = np.exp(-16) # surrogate for mu = zero
    muLargest  = 10          # surrogate for mu = infty
@@ -465,7 +465,7 @@ def plot2DFlower(A,b,c,theta,T,colr):
    return
 
 
-def plot2DFlowerAdjust(A, b, c, theta, T, cmap_name="viridis",
+def plot2DFlowerAdjust(A, b, c, theta, T, tol, title, cmap_name="viridis",
                        fig_name="cpFig",
                        extension="svg",
                        dpi=600,
@@ -485,18 +485,19 @@ def plot2DFlowerAdjust(A, b, c, theta, T, cmap_name="viridis",
 
     for t in range(num_paths):
         # Generate the central path
-        cp = generateOldPath(A, b, c[t, :])
+        cp = generatePath(A, b, c[t, :], tol)
         num_points = len(cp) # The number of rows equals the number of points
         
         pltBound = max(abs(cp).max(), pltBound)
 
         path_color = colormap(t / max(1, num_paths - 1))
+        marker_color = np.hstack([path_color[:3],0.375])
 
         x_vals = np.cos(theta) * (cp[:, 0] + T[0]) + np.sin(theta) * (cp[:, 1] + T[1])
         y_vals = -np.sin(theta) * (cp[:, 0] + T[0]) + np.cos(theta) * (cp[:, 1] + T[1])
 
         # Assign a label for the legend using an f-string
-        plt.plot(x_vals, y_vals, color=path_color, label=f"{num_points} pts", **kwargs)
+        plt.plot(x_vals, y_vals, color=path_color, label=f"{num_points} pts", markerfacecolor=marker_color,  **kwargs)
 
     plt.xlim((0 - pltBorder, pltBound + pltBorder))
     plt.ylim((0 - pltBorder, pltBound + pltBorder))
@@ -506,7 +507,7 @@ def plot2DFlowerAdjust(A, b, c, theta, T, cmap_name="viridis",
     # Placement of the legend: 'best' attempts to avoid overlapping data.
     # We use a smaller font size to keep the plot compact.
     plt.legend(fontsize='small', frameon=True, loc='upper left')
-    plt.title("Points from Curvature Estimate", fontsize=12, family='serif')
+    plt.title(title, fontsize=12, family='serif')
 
     full_filename = f"{fig_name}.{extension}"
     fig.savefig(full_filename, dpi=dpi, bbox_inches='tight', transparent=True)
@@ -908,3 +909,29 @@ def generateSTL(allcp,k,stlFilename):
          os.remove(os.path.join(newdir,f))
    print('Created stl file '+stlFilename+'.stl')
 
+
+def sumPathCurvature(cp):
+    """
+    Iterates through a generated path (cp) and sums the curvature
+    using calcCurvature from cpUtilsTheta.
+    """
+    total_kappa1 = 0.0
+    total_kappa2 = 0.0
+
+    # We need at least 3 points to calculate curvature
+    num_points = len(cp)
+    if num_points < 3:
+        return 0.0, 0.0
+
+    for i in range(num_points - 2):
+        x1 = cp[i, :]
+        x2 = cp[i+1, :]
+        x3 = cp[i+2, :]
+
+        # Calculate forward (k1) and backward (k2) curvature estimates
+        k1, k2 = calcCurvature(x1, x2, x3)
+
+        total_kappa1 += k1
+        total_kappa2 += k2
+
+    return total_kappa1, total_kappa2
