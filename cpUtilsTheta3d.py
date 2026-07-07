@@ -824,6 +824,99 @@ def surfaceCurve(cpOrig, r, k):
    return crclPtsAroundCP
 
 #
+# surfaceCurve
+#
+#    Generates points on a circle orthogonal to the path and
+#    centered at the points defining the path.
+#
+#    The input arguments are:
+#       cp - list of points on a central path
+#       r  - radius of the circle
+#       k  - number of points per circle
+#
+#    The return is:
+#       crclPtsAroundCP - an array of matrices, with each
+#          entry corresponding with an element of the path.
+#          Each matrix is k by 3, with each row containing 
+#          the coordinates of a point on the circle around
+#          the point on the path.
+#
+#   The return structure is essentially a 3D matrix, which works
+#   with Connor's stl code. I think this data structure could be
+#   streamlined.
+#
+#   As of version 0.08 we can also extrude along a line. This
+#   proces is triggered by defining a curve by the starting and
+#   ending point of the line segment alone.
+#
+def surfaceCurve(cpOrig, r, k):
+   # The path may have points too close to numerically
+   # approximate TNB, so we first insepct and possibly cull the
+   # path.
+   # NOTE: We might need to reverse the culling process because
+   #       this check could have issues with the end of the path.
+   #       I am leaving it as is until we have errors.
+   numPts = len(cpOrig)
+   tol = 10**(-8)
+   # make sure to include the first point
+   rowInd = [0]
+   for j in range(1,numPts-1):
+      if np.linalg.norm(cpOrig[j]-cpOrig[j-1]) > tol:
+         rowInd.append(j)
+   # add the last point, which could, as noted above, be too
+   # close to the previous point.
+   rowInd.append(numPts-1)
+   # grab the elements that we want for 3D printing
+   cp = cpOrig[rowInd,:]
+   # Instantiate space for points on circles around the path
+   crclPtsAroundCP = np.array([]).reshape(0,3)
+   ax = plt.axes(projection='3d') # axes for debugging
+   # Loop through the points of the path
+   for i in range(np.size(cp,0)):
+      # Create the TNB reference vectors - depends on if the path
+      # is a line.
+      if np.size(cp,0) == 2:
+         T = cp[1] - cp[0]
+         if np.abs(T[0]+T[1]) > tol:
+            N = np.array([-T[1],T[0],0])
+         else:
+            N = np.array([1,0,0])
+      elif np.size(cp,0) >= 3:
+         # Estimage T and N at each point of the path
+         if i == 0:
+            T = (cp[i+1]-cp[i])/np.linalg.norm(cp[i+1]-cp[i])
+            T2 = (cp[i+2]-cp[i+1])/np.linalg.norm(cp[i+2]-cp[i+1])
+            N = (T-T2)/np.linalg.norm(T2-T)
+            Nprev = N
+         elif i == np.size(cp,0)-1:
+            T1 = (cp[i-1]-cp[i-2])/np.linalg.norm(cp[i-1]-cp[i-2])
+            T = (cp[i]-cp[i-1])/np.linalg.norm(cp[i]-cp[i-1])
+            N = (T1-T)/np.linalg.norm(T-T1)
+            Nprev = N
+         else:
+            T1 = (cp[i+1]-cp[i])/np.linalg.norm(cp[i+1]-cp[i])
+            T2 = (cp[i]-cp[i-1])/np.linalg.norm(cp[i]-cp[i-1])
+            T = (T1+T2)/np.linalg.norm(T1+T2)
+            if np.linalg.norm(T2-T1) < tol:
+               # in this case the path is pretty linear, just use the
+               # previous N
+               N = Nprev
+            else:
+               N = (T2-T1)/np.linalg.norm(T2-T1)
+      B = np.cross(T,N)
+      # add points on circle around cp point i to our list of poins
+      theta = np.linspace(0,2*np.pi-(2*np.pi/k),num=k)
+      pts = np.zeros((k,3))
+      for j in range(k):
+         pts[j,:] = cp[i] + r*(np.cos(theta[j])*N + np.sin(theta[j])*B)
+      crclPtsAroundCP = np.vstack([crclPtsAroundCP, pts])
+      #ax.plot3D(pts[:,0], pts[:,1], pts[:,2], ".")
+   #ax.plot3D(cp[:,0], cp[:,1], cp[:,2])
+   #plt.show()
+   return crclPtsAroundCP
+
+
+#
 # generateSTL
 #
 # This is an adaptation of Connor's stl code. The triangular
@@ -939,4 +1032,92 @@ def writeToSVG(A,b,c,tol):
     print(f"written to {filename}")
 
     return
+
+
+#
+# generateSTL
+#
+# This is an adaptation of Connor's stl code. The triangular
+# tesselation is built in 'layers' by progressing down a path.
+# This also works with linux, and I some added code to remove
+# the temporary stl files.
+#
+# The input arguments are:
+#    allcp - an array with each element corresponding with
+#            a central path. Each element is a list of matrices
+#            describing the points encircling the path elements.
+#    numPointInCircle - number of points per circle
+#    stlFilename - the name (string) of the resulting stl file
+#
+# The function returns nothing, but it does save the file.
+#
+# The data structure could use some help, and I don't think we
+# need to write the files to disk. This is working, but uninspired,
+# code.
+#
+def generateSTL(allcp,k,stlFilename):
+   #change dir to temp folder to save each path stl
+   curdir = os.getcwd()
+   # directory to place temporary individual stl files
+   newdir = curdir+'/tmpSTL'
+   # create the directory if it doesn't exist
+   if not os.path.exists(newdir):
+      os.makedirs(newdir)
+   os.chdir(newdir)
+   # loop through the vertices for each path
+   for q, verts in enumerate(allcp):
+      # add triangles for each layer between two consecutive
+      # cp points - note that verts is a list of surrounding
+      # vertices around cp points, with each row corresponding
+      # with a cp point.
+      #
+      # instantiate a face index
+      faceIndex = []
+      numLayers = int(len(verts)/k)-1
+      for t in range(numLayers):
+         for i in range(k):
+            s = t*k+i
+            # this conditional avoids modular arithmetic,
+            # probably could be more elegant
+            if i == 0:
+               faceIndex.append([s,s+k-1,s+2*k-1])
+               faceIndex.append([s,s+2*k-1,s+k])
+            else:
+               faceIndex.append([s-1,s,k+s-1])
+               faceIndex.append([s,k+s-1,k+s])
+      # add caps at the top and bottom
+      for t in range(2):
+         s = numLayers*k*t
+         for i in range(1,k-1):
+            faceIndex.append([s,s+i,s+i+1])
+      # put the face indices in an np array
+      faceIndex = np.array(faceIndex)
+      #print(faceIndex)
+      #
+      # Not really happy with the file based method below, but it
+      # it works for now.
+      #
+      tempSTL = mesh.Mesh(np.zeros(faceIndex.shape[0], dtype=mesh.Mesh.dtype))
+      for i, f in enumerate(faceIndex):
+         for j in range(3):
+            tempSTL.vectors[i][j] = verts[f[j], :]
+      tempSTL.save('tmpSTL'+str(q)+'.stl')
+   for file in os.listdir(newdir):
+      if file == os.listdir(newdir)[0]:
+         finalSTL = mesh.Mesh.from_file(file)
+         finalSTL.save('finalSTL.stl')
+      else:
+         finalSTL = mesh.Mesh.from_file('finalSTL.stl')
+         curSTL = mesh.Mesh.from_file(file)
+         combined = mesh.Mesh(np.concatenate([finalSTL.data, curSTL.data]))
+         combined.save('finalSTL.stl')
+   finalSTL = mesh.Mesh.from_file('finalSTL.stl')
+   os.chdir(curdir)
+   finalSTL.save(stlFilename+'.stl')
+   # Clean-up
+   for f in os.listdir(newdir):
+      if re.search('.stl',f):
+         os.remove(os.path.join(newdir,f))
+   print('Created stl file '+stlFilename+'.stl')
+
 

@@ -11,7 +11,7 @@ def compute_path_length(params):
     """
     cx, cy, A, b, tol = params
     try:
-        path = generatePath(A, b, [cx, cy], tol=tol)
+        path = generateOldPath(A, b, [cx, cy], tol=tol)
         return len(path)
     except Exception:
         return 0
@@ -20,8 +20,8 @@ def main():
     # Setup parameters
     n_facets = 4
     A, b = get2DData(n_facets)
-    tol = 0.0001
-    grid_res = 500  # We can handle higher resolution now!
+    tol = 0.1
+    grid_res = 50  # We can handle higher resolution now!
     
     cx_range = np.linspace(0.01, 1.0, grid_res)
     cy_range = np.linspace(0.01, 1.0, grid_res)
@@ -48,7 +48,7 @@ def main():
     plt.xlabel('$c_x$ value')
     plt.ylabel('$c_y$ value')
     plt.title(f'Central Path Point Density (n={n_facets}, tol={tol})')
-    plt.savefig(f'central_path_density_grid_{grid_res}_tol_{tol}.heatmap.svg')
+    plt.savefig(f'old_central_path_density_grid_{grid_res}_tol_{tol}.heatmap.svg')
     plt.show()
 
 if __name__ == "__main__":
