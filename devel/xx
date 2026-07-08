@@ -1,0 +1,64 @@
+def generateSTL(allcp,k,stlFilename):
+   #change dir to temp folder to save each path stl
+   curdir = os.getcwd()
+   # directory to place temporary individual stl files
+   newdir = curdir+'/tmpSTL'
+   # create the directory if it doesn't exist
+   if not os.path.exists(newdir):
+      os.makedirs(newdir)
+   os.chdir(newdir)
+   # loop through the vertices for each path
+   for q, verts in enumerate(allcp):
+      # add triangles for each layer between two consecutive
+      # cp points - note that verts is a list of surrounding
+      # vertices around cp points, with each row corresponding
+      # with a cp point.
+      #
+      # instantiate a face index
+      faceIndex = []
+      numLayers = int(len(verts)/k)-1
+      for t in range(numLayers):
+         for i in range(k):
+            s = t*k+i
+            # this conditional avoids modular arithmetic,
+            # probably could be more elegant
+            if i == 0:
+               faceIndex.append([s,s+k-1,s+2*k-1])
+               faceIndex.append([s,s+2*k-1,s+k])
+            else:
+               faceIndex.append([s-1,s,k+s-1])
+               faceIndex.append([s,k+s-1,k+s])
+      # add caps at the top and bottom
+      for t in range(2):
+         s = numLayers*k*t
+         for i in range(1,k-1):
+            faceIndex.append([s,s+i,s+i+1])
+      # put the face indices in an np array
+      faceIndex = np.array(faceIndex)
+      #print(faceIndex)
+      #
+      # Not really happy with the file based method below, but it
+      # it works for now.
+      #
+      tempSTL = mesh.Mesh(np.zeros(faceIndex.shape[0], dtype=mesh.Mesh.dtype))
+      for i, f in enumerate(faceIndex):
+         for j in range(3):
+            tempSTL.vectors[i][j] = verts[f[j], :]
+      tempSTL.save('tmpSTL'+str(q)+'.stl')
+   for file in os.listdir(newdir):
+      if file == os.listdir(newdir)[0]:
+         finalSTL = mesh.Mesh.from_file(file)
+         finalSTL.save('finalSTL.stl')
+      else:
+         finalSTL = mesh.Mesh.from_file('finalSTL.stl')
+         curSTL = mesh.Mesh.from_file(file)
+         combined = mesh.Mesh(np.concatenate([finalSTL.data, curSTL.data]))
+         combined.save('finalSTL.stl')
+   finalSTL = mesh.Mesh.from_file('finalSTL.stl')
+   os.chdir(curdir)
+   finalSTL.save(stlFilename+'.stl')
+   # Clean-up
+   for f in os.listdir(newdir):
+      if re.search('.stl',f):
+         os.remove(os.path.join(newdir,f))
+   print('Created stl file '+stlFilename+'.stl')
